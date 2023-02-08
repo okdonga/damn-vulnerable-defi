@@ -73,9 +73,13 @@ describe('[Challenge] The rewarder', function () {
         // 2. make a receiveFlashLoan function in the attacker contract that will deposit the max amount
         const AttackerFactory = await ethers.getContractFactory('RewardAttacker', deployer);
         
-        this.attacker = await AttackerFactory.deploy(this.flashLoanPool.address, this.rewarderPool.address, this.liquidityToken.address, this.rewardToken.address);
-        const attackAmount = await this.liquidityToken.balanceOf(this.flashLoanPool.address);
-        this.attacker.connect(attacker).attack(attackAmount);
+        this.attacker = await AttackerFactory.deploy(
+            this.flashLoanPool.address, 
+            this.rewarderPool.address, 
+            this.liquidityToken.address, 
+            this.rewardToken.address
+        );
+        this.attacker.connect(attacker).attack();
     });
 
     after(async function () {
