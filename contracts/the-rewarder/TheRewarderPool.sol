@@ -5,7 +5,6 @@ pragma solidity ^0.8.0;
 import "./RewardToken.sol";
 import "../DamnValuableToken.sol";
 import "./AccountingToken.sol";
-
 /**
  * @title TheRewarderPool
  * @author Damn Vulnerable DeFi (https://damnvulnerabledefi.xyz)
@@ -51,7 +50,7 @@ contract TheRewarderPool {
         
         accToken.mint(msg.sender, amountToDeposit);
         distributeRewards();
-
+        // deposit from msg.sender to this contract
         require(
             liquidityToken.transferFrom(msg.sender, address(this), amountToDeposit)
         );
@@ -59,6 +58,7 @@ contract TheRewarderPool {
 
     function withdraw(uint256 amountToWithdraw) external {
         accToken.burn(msg.sender, amountToWithdraw);
+        // withdraw from this contract to msg.sender
         require(liquidityToken.transfer(msg.sender, amountToWithdraw));
     }
 
