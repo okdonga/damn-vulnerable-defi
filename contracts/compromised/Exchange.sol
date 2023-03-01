@@ -36,6 +36,7 @@ contract Exchange is ReentrancyGuard {
 
         uint256 tokenId = token.safeMint(msg.sender);
         
+        // Return the remaining amount to the buyer
         payable(msg.sender).sendValue(amountPaidInWei - currentPriceInWei);
 
         emit TokenBought(msg.sender, tokenId, currentPriceInWei);
