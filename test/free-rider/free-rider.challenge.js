@@ -6,9 +6,11 @@ const routerJson = require("@uniswap/v2-periphery/build/UniswapV2Router02.json")
 const { ethers } = require('hardhat');
 const { expect } = require('chai');
 
+const format = ethers.utils.formatEther;
+
 describe('[Challenge] Free Rider', function () {
     let deployer, attacker, buyer;
-
+    
     // The NFT marketplace will have 6 tokens, at 15 ETH each
     const NFT_PRICE = ethers.utils.parseEther('15')
     const AMOUNT_OF_NFTS = 6;
@@ -57,7 +59,7 @@ describe('[Challenge] Free Rider', function () {
             UNISWAP_INITIAL_TOKEN_RESERVE,                              // amountTokenDesired
             0,                                                          // amountTokenMin
             0,                                                          // amountETHMin
-            deployer.address,                                           // to
+            deployer.address,                                           // repicient of the liquidity tokens
             (await ethers.provider.getBlock('latest')).timestamp * 2,   // deadline
             { value: UNISWAP_INITIAL_WETH_RESERVE }
         );
@@ -69,7 +71,7 @@ describe('[Challenge] Free Rider', function () {
         );
         expect(await this.uniswapPair.token0()).to.eq(this.weth.address);
         expect(await this.uniswapPair.token1()).to.eq(this.token.address);
-        expect(await this.uniswapPair.balanceOf(deployer.address)).to.be.gt('0');
+        expect(await this.uniswapPair.balanceOf(deployer.address)).to.be.gt('0'); // balance of LP tokens
 
         // Deploy the marketplace and get the associated ERC721 token
         // The marketplace will automatically mint AMOUNT_OF_NFTS to the deployer (see `FreeRiderNFTMarketplace::constructor`)
@@ -105,13 +107,21 @@ describe('[Challenge] Free Rider', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+        const AttackerFactory = await ethers.getContractFactory('FreeRiderAttacker', attacker);
+        this.attacker = await AttackerFactory.connect(attacker).deploy(
+            this.uniswapPair.address,
+            this.weth.address, 
+            this.marketplace.address,
+            this.buyerContract.address
+        );
+        await this.attacker.startFlashLoan(ethers.utils.parseEther('15'));
     });
 
     after(async function () {
         /** SUCCESS CONDITIONS */
 
         // Attacker must have earned all ETH from the payout
-        expect(await ethers.provider.getBalance(attacker.address)).to.be.gt(BUYER_PAYOUT);
+        expect(await ethers.provider.getBalance(attacker.address)).to.be.gt(BUYER_PAYOUT); // 45
         expect(await ethers.provider.getBalance(this.buyerContract.address)).to.be.eq('0');
 
         // The buyer extracts all NFTs from its associated contract

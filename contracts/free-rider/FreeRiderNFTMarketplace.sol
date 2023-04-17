@@ -68,7 +68,7 @@ contract FreeRiderNFTMarketplace is ReentrancyGuard {
     function _buyOne(uint256 tokenId) private {       
         uint256 priceToPay = offers[tokenId];
         require(priceToPay > 0, "Token is not being offered");
-
+        // red flag! 
         require(msg.value >= priceToPay, "Amount paid is not enough");
 
         amountOfOffers--;
